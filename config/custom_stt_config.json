@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "model_type": "custom",
+  "model_path": "",
+  "language": "es-ES",
+  "sample_rate": 16000,
+  "channels": 1
+}

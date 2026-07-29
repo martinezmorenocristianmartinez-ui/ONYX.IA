@@ -1,0 +1,23 @@
+{
+  "salto_repetitivo": [
+    "{'type': 'key', 'value': 'space'}"
+  ],
+  "salto_manual": [
+    "{'type': 'computer_control', 'value': \"{'action': 'key', 'key': 'space'}\"}"
+  ],
+  "launch_fortnite": [
+    "{'type': 'open', 'value': 'Fortnite'}"
+  ],
+  "saltar_anuncio": [
+    {
+      "type": "key",
+      "value": "click_position",
+      "delay": 0.3
+    },
+    {
+      "type": "key",
+      "value": "saltar_anuncio",
+      "delay": 0.3
+    }
+  ]
+}

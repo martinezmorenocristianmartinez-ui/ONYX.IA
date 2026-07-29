@@ -1,0 +1,32 @@
+[
+  {
+    "topic": "abrir_tiktok",
+    "content": "Abrir TikTok siempre en Google Chrome",
+    "mode": "behavior"
+  },
+  {
+    "topic": "tiktok_browser",
+    "content": "Abrir TikTok siempre en Google Chrome",
+    "mode": "behavior"
+  },
+  {
+    "topic": "optimizar_busqueda_visual",
+    "content": "Optimizar la b\u00fasqueda de funciones y elementos en pantalla mediante el an\u00e1lisis visual y UI Automation para interacciones m\u00e1s r\u00e1pidas y precisas.",
+    "mode": "behavior"
+  },
+  {
+    "topic": "optimizar_busqueda_visual",
+    "content": "",
+    "mode": "behavior"
+  },
+  {
+    "topic": "unmute_tiktok",
+    "content": "click_position(position_name='saltar_anuncio')",
+    "mode": "behavior"
+  },
+  {
+    "topic": "saltar_anuncio",
+    "content": "click_position,saltar_anuncio",
+    "mode": "macro"
+  }
+]

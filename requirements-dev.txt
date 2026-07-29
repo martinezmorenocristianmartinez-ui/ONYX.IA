@@ -1,0 +1,5 @@
+# Dependencias de desarrollo / testing de ONYX.
+# Instalar con: .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+# Ejecutar tests con: .venv\Scripts\python.exe -m pytest
+
+pytest==9.1.1

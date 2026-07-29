@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONYX Neural Core</title>
+    <!-- Material Symbols & Sora Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --primary-fixed: #f59e0b;
+            --primary-fixed-dim: #78350f;
+            --primary-glow: rgba(245, 158, 11, 0.3);
+            --primary-ring-1-bg: rgba(245, 158, 11, 0.2);
+            --primary-ring-2-bg: rgba(245, 158, 11, 0.15);
+            --energy-level: 1.0;
+            --glow-intensity: 0.6;
+        }
+
+        /* Essential Utility Classes replacing Tailwind (saves ~100MB of RAM) */
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-start { align-items: flex-start; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .font-mono { font-family: 'JetBrains Mono', Consolas, Monaco, 'Courier New', monospace; }
+        .font-bold { font-weight: bold; }
+        .opacity-50 { opacity: 0.5; }
+        .text-\[8px\] { font-size: 8px; }
+        .text-sm { font-size: 12px; }
+        .text-2xl { font-size: 24px; }
+        .tracking-widest { letter-spacing: 0.15em; }
+        .mt-0\.5 { margin-top: 2px; }
+        .px-2 { padding-left: 8px; padding-right: 8px; }
+        .py-2 { padding-top: 8px; padding-bottom: 8px; }
+        .w-\[74px\] { width: 74px; }
+        .h-\[74px\] { height: 74px; }
+        .w-\[96px\] { width: 96px; }
+        .h-\[96px\] { height: 96px; }
+        .w-\[78px\] { width: 78px; }
+        .h-\[78px\] { height: 78px; }
+        .rounded-full { border-radius: 9999px; }
+        .bg-\[var\(--primary-fixed\)\]\/20 { background-color: var(--primary-ring-1-bg); }
+        .bg-\[var\(--primary-fixed\)\]\/15 { background-color: var(--primary-ring-2-bg); }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', Consolas, Monaco, 'Courier New', monospace;
+            user-select: none;
+        }
+
+        #neural-core-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #orb-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 48%; /* Centers the orb mathematically in the empty upper space above Bento Grid */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        #sphere-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            cursor: pointer;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Ambient glowing halos — centered exactly on orb */
+        .ambient-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 75%;
+            height: 75%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            z-index: 1;
+            transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.25s ease, width 0.25s ease, height 0.25s ease;
+        }
+
+        .ripple {
+            position: absolute;
+            border: 1px solid var(--primary-fixed);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: ripple-out 1.5s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+            z-index: 5;
+        }
+
+        @keyframes ripple-out {
+            0% { width: 0; height: 0; opacity: 1; transform: scale(1); }
+            100% { width: 100vw; height: 100vw; opacity: 0; border-width: 0px; transform: scale(1.5); }
+        }
+
+        .data-particle {
+            position: absolute;
+            background: var(--primary-fixed);
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(0.5px);
+            box-shadow: 0 0 6px var(--primary-fixed);
+            z-index: 15;
+        }
+
+        /* Active / Synaptic load stats overlays */
+        #synaptic-stats {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--primary-fixed);
+            opacity: 0;
+            pointer-events: none;
+            text-shadow: 0 0 8px var(--primary-glow);
+            transition: opacity 0.6s ease;
+        }
+        #synaptic-stats.visible {
+            opacity: 0.75;
+        }
+
+        /* Bottom Capsule Mic Control Bar (Replacing horizontal write bar!) */
+        #bottom-mic-panel {
+            display: none !important; /* Completely removed from interface as requested */
+        }
+
+        .mic-capsule {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: var(--capsule-bg, rgba(5, 20, 36, 0.85));
+            padding: 8px 24px;
+            border-radius: 9999px;
+            border: 1px solid rgba(0, 212, 255, 0.25);
+            pointer-events: auto;
+            box-shadow: 0 0 35px var(--primary-glow), inset 0 0 15px rgba(0, 212, 255, 0.05);
+            backdrop-filter: blur(16px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mic-label {
+            font-family: 'Sora', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            opacity: 0.35;
+        }
+
+        .mic-label:hover {
+            opacity: 0.85;
+        }
+
+        .mic-halo {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            border: 1px solid var(--primary-fixed);
+            opacity: 0;
+            transition: all 0.5s ease;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.7); opacity: 0; }
+            50% { opacity: 0.45; }
+            100% { transform: scale(1.35); opacity: 0; }
+        }
+
+        .pulsing-ring-1 {
+            animation: pulse-ring 2.2s ease-out infinite;
+        }
+        .pulsing-ring-2 {
+            animation: pulse-ring 3.2s ease-out infinite 0.8s;
+        }
+
+        #mic-trigger {
+            position: relative;
+            z-index: 60;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(14, 28, 45, 0.95) 0%, rgba(8, 16, 26, 0.95) 100%);
+            border: 1px solid var(--primary-fixed);
+            color: var(--primary-fixed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--primary-glow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        #mic-trigger:hover {
+            background: var(--primary-fixed);
+            color: #051424;
+            box-shadow: 0 0 30px var(--primary-fixed);
+            transform: scale(1.08);
+        }
+
+        #mic-trigger:active {
+            transform: scale(0.94);
+        }
+
+        #mic-trigger.muted {
+            border-color: #ff3355;
+            color: #ff3355;
+            box-shadow: 0 0 20px rgba(255, 51, 85, 0.4);
+            background: radial-gradient(circle, rgba(40, 10, 15, 0.95) 0%, rgba(20, 5, 8, 0.95) 100%);
+        }
+
+        #mic-trigger.muted:hover {
+            background: #ff3355;
+            color: #ffffff;
+            box-shadow: 0 0 28px #ff3355;
+        }
+    </style>
+</head>
+<body>
+    <div id="neural-core-container">
+        <!-- Orb Wrapper for centering the sphere in the upper half of the window -->
+        <div id="orb-wrapper">
+            <div id="ambient-halo" class="ambient-glow"></div>
+            <!-- Central Neural Sphere -->
+            <canvas id="sphere-canvas"></canvas>
+        </div>
+
+        <!-- Left Synaptic Stats Overlay -->
+        <div id="synaptic-stats" class="font-mono">
+            <div class="flex flex-col items-start">
+                <span class="opacity-50 text-[8px] tracking-widest">Core Sync</span>
+                <span id="stat-sync" class="font-bold text-sm mt-0.5">99.2%</span>
+            </div>
+            <div class="flex flex-col items-start">
+                <span class="opacity-50 text-[8px] tracking-widest">Synaptic Load</span>
+                <span id="stat-load" class="font-bold text-sm mt-0.5">8 ms</span>
+            </div>
+        </div>
+
+        <!-- Bottom Capsule Mic Control Bar (Replacing horizontal write bar!) -->
+        <div id="bottom-mic-panel">
+            <div class="mic-capsule" id="mic-capsule-border">
+                <!-- MIC ON Label -->
+                <button id="lbl-mic-on" onclick="setMuteFromWeb(false)" class="mic-label px-2 py-2 text-[var(--primary-fixed)]">
+                    Mic On
+                </button>
+                
+                <!-- Circular Pulse Trigger -->
+                <div class="relative flex items-center justify-center w-[74px] h-[74px]">
+                    <div class="absolute w-[96px] h-[96px] bg-[var(--primary-fixed)]/20 rounded-full mic-halo pulsing-ring-1" id="ring-1"></div>
+                    <div class="absolute w-[78px] h-[78px] bg-[var(--primary-fixed)]/15 rounded-full mic-halo pulsing-ring-2" id="ring-2"></div>
+                    <button id="mic-trigger" onclick="onMicTriggerClick()">
+                        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;" id="mic-icon">mic</span>
+                    </button>
+                </div>
+                
+                <!-- MIC MUTED Label -->
+                <button id="lbl-mic-muted" onclick="setMuteFromWeb(true)" class="mic-label px-2 py-2 text-[#ff3355]">
+                    Mic Muted
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Qt WebChannel Bridging -->
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script>
+        // QWebChannel Interop
+        let pyBridge = null;
+        try {
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                pyBridge = channel.objects.pyBridge;
+                console.log("Qt WebChannel connected!");
+                // Proactively request theme colors from Python once QWebChannel is ready
+                if (pyBridge && pyBridge.request_theme) {
+                    pyBridge.request_theme();
+                }
+            });
+        } catch (e) {
+            console.log("Not in Qt WebEngine environment, running standalone.");
+        }
+
+        const root = document.documentElement;
+        const canvas = document.getElementById('sphere-canvas');
+        const ctx = canvas.getContext('2d');
+        const coreContainer = document.getElementById('neural-core-container');
+        const orbWrapper = document.getElementById('orb-wrapper');
+        const micBtn = document.getElementById('mic-trigger');
+        const micIcon = document.getElementById('mic-icon');
+        const ring1 = document.getElementById('ring-1');
+        const ring2 = document.getElementById('ring-2');
+        const lblOn = document.getElementById('lbl-mic-on');
+        const lblMuted = document.getElementById('lbl-mic-muted');
+        const capsuleBorder = document.getElementById('mic-capsule-border');
+        const ambientHalo = document.getElementById('ambient-halo');
+        const synapticStats = document.getElementById('synaptic-stats');
+
+        let isMuted = false;
+        let baseIntensity = 1.0;
+        let width, height;
+        let rotationX = 0;
+        let rotationY = 0;
+        let currentState = "MUTED"; // LISTENING, THINKING, SPEAKING, MUTED
+        let currentVolume = 0.0;
+        let externalVolume = false; // true if updateVolume has been called externally
+        let currentVisualMode = "neural"; // neural, galaxy, pulse, aurora
+        let currentMovement = "still";    // still, orbit, bob, sway, drift
+        let sphereOffsetX = 0;
+        let sphereOffsetY = 0;
+        let animTime = 0;
+        let rainbowActive = false;
+        let rainbowHue = 0;
+        let savedThemeColors = null;
+
+        let themeColors = {
+            PRI: '#f59e0b',
+            PRI_DIM: '#78350f',
+            TEXT: '#fde68a',
+            BG: '#0c0a00'
+        };
+
+        function hslColor(h, s, l) {
+            return `hsl(${h}, ${s}%, ${l}%)`;
+        }
+
+        function hslaColor(h, s, l, a) {
+            return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+        }
+
+        function applyThemeToDom(opts) {
+            const o = opts || {};
+            const glowAlpha = (typeof o.glowAlpha === 'number') ? o.glowAlpha : 0.4;
+            const ring1Alpha = (typeof o.ring1Alpha === 'number') ? o.ring1Alpha : 0.2;
+            const ring2Alpha = (typeof o.ring2Alpha === 'number') ? o.ring2Alpha : 0.15;
+            const haloAlpha = (typeof o.haloAlpha === 'number') ? o.haloAlpha : 0.2;
+            const borderAlpha = (typeof o.borderAlpha === 'number') ? o.borderAlpha : 0.3;
+            const shadowAlpha = (typeof o.shadowAlpha === 'number') ? o.shadowAlpha : 0.6;
+
+            document.documentElement.style.setProperty('--primary-fixed', themeColors.PRI);
+            document.documentElement.style.setProperty('--primary-fixed-dim', themeColors.PRI_DIM);
+            document.documentElement.style.setProperty('--primary-glow', hexToRgba(themeColors.PRI, glowAlpha));
+            document.documentElement.style.setProperty('--primary-ring-1-bg', hexToRgba(themeColors.PRI, ring1Alpha));
+            document.documentElement.style.setProperty('--primary-ring-2-bg', hexToRgba(themeColors.PRI, ring2Alpha));
+
+            const capsuleBg = hexToRgba(themeColors.BG, 0.85);
+            document.documentElement.style.setProperty('--capsule-bg', capsuleBg);
+
+            if (ambientHalo) {
+                ambientHalo.style.background = `radial-gradient(circle, ${hexToRgba(themeColors.PRI, haloAlpha)} 0%, transparent 70%)`;
+            }
+            if (synapticStats) synapticStats.style.color = themeColors.PRI;
+            if (capsuleBorder) capsuleBorder.style.borderColor = hexToRgba(themeColors.PRI, borderAlpha);
+            if (lblOn) {
+                lblOn.style.color = themeColors.PRI;
+                lblOn.style.textShadow = isMuted ? 'none' : `0 0 12px ${hexToRgba(themeColors.PRI, shadowAlpha)}`;
+            }
+        }
+
+        // Quality setting: 40 for smooth on CPU (--disable-gpu), 90 for GPU
+        const NODE_COUNT = 40;
+        let sphereRadius = 180;
+        const nodes = [];
+
+        class Node {
+            constructor(index) {
+                this.index = index;
+                this.theta = Math.random() * Math.PI * 2;
+                this.phi = Math.acos((Math.random() * 2) - 1);
+                this.x = 0;
+                this.y = 0;
+                this.z = 0;
+                this.baseX = 0;
+                this.baseY = 0;
+                this.baseZ = 0;
+                this.size = 1.2 + Math.random() * 2.5;
+                this.color = themeColors.PRI;
+                this.pulse = Math.random() * Math.PI * 2;
+                this.pulseSpeed = 0.03 + Math.random() * 0.06;
+                this.synapticFiring = 0;
+                this.ringOffset = Math.random() * Math.PI * 2;
+                this.spiralAngle = this.index * 0.4;
+                this.spiralRadius = (this.index / NODE_COUNT) * 1.0;
+                this.randomizeColor();
+            }
+
+            randomizeColor() {
+                const rand = Math.random();
+                if (rand > 0.6) {
+                    this.color = themeColors.PRI;
+                } else if (rand > 0.2) {
+                    this.color = themeColors.TEXT;
+                } else {
+                    this.color = themeColors.PRI_DIM;
+                }
+            }
+
+            update(rx, ry, intensity, radius) {
+                let speedMultiplier = 1;
+                if (currentState === "THINKING") speedMultiplier = 4.5;
+                else if (currentState === "SPEAKING") speedMultiplier = 2.0;
+                else if (currentState === "MUTED") speedMultiplier = 0.25;
+
+                this.pulse += this.pulseSpeed * speedMultiplier;
+                if (this.synapticFiring > 0) this.synapticFiring -= 0.04;
+
+                if (rainbowActive) {
+                    const hue = (rainbowHue + this.index * 4) % 360;
+                    this.color = hslColor(hue, 90, 60);
+                }
+
+                let x, y, z;
+                if (currentVisualMode === "galaxy") {
+                    const a = this.spiralAngle + animTime * 0.15;
+                    const r = this.spiralRadius * radius * 0.9 + radius * 0.1;
+                    x = Math.cos(a) * r;
+                    z = Math.sin(a) * r * 0.3;
+                    y = (this.index / 90 - 0.5) * radius * 0.4 + Math.sin(a * 2 + animTime) * radius * 0.05;
+                } else if (currentVisualMode === "pulse") {
+                    const ringIdx = (this.index % 5) / 5;
+                    const angle = this.theta + animTime * (0.5 + ringIdx * 0.5);
+                    const r = radius * (0.2 + ringIdx * 0.8) * (0.9 + 0.1 * Math.sin(animTime * 2 + this.ringOffset));
+                    x = Math.cos(angle) * r;
+                    y = Math.sin(angle) * r;
+                    z = Math.cos(this.phi + animTime * 0.3) * radius * 0.3;
+                } else if (currentVisualMode === "aurora") {
+                    const curtainX = (this.index / 90) * Math.PI * 4 + animTime * 0.2;
+                    const curtainY = (this.index % 7) / 7;
+                    x = (curtainY - 0.5) * radius * 1.5;
+                    y = Math.sin(curtainX + curtainY * 2) * radius * 0.4 + Math.sin(animTime * 0.5 + this.index) * radius * 0.1;
+                    z = Math.cos(curtainX * 1.3) * radius * 0.5;
+                } else {
+                    x = radius * Math.sin(this.phi) * Math.cos(this.theta);
+                    y = radius * Math.sin(this.phi) * Math.sin(this.theta);
+                    z = radius * Math.cos(this.phi);
+                }
+
+                let x1 = x * Math.cos(ry) - z * Math.sin(ry);
+                let z1 = x * Math.sin(ry) + z * Math.cos(ry);
+                let y2 = y * Math.cos(rx) - z1 * Math.sin(rx);
+                let z2 = y * Math.sin(rx) + z1 * Math.cos(rx);
+
+                this.x = x1;
+                this.y = y2;
+                this.z = z2;
+                this.baseX = x;
+                this.baseY = y;
+                this.baseZ = z;
+
+            }
+
+            draw(ctx, centerX, centerY, intensity) {
+                const scale = (this.z + sphereRadius) / (sphereRadius * 2) * 0.75 + 0.25;
+                const firingBoost = this.synapticFiring * 4.0;
+                const opacity = scale * (0.4 + Math.sin(this.pulse) * 0.25) * intensity;
+                const useColor = this.color;
+
+                ctx.beginPath();
+                const scaleModifier = (currentState === "SPEAKING") ? (1.0 + currentVolume * 2.0) : 1.0;
+                const radius = this.size * scale * scaleModifier + firingBoost;
+                
+                ctx.arc(centerX + this.x, centerY + this.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = useColor;
+                ctx.globalAlpha = Math.min(1.0, opacity + this.synapticFiring);
+                ctx.fill();
+
+                if (scale > 0.6 || this.synapticFiring > 0.1) {
+                    ctx.shadowBlur = (15 + firingBoost * 10) * intensity;
+                    ctx.shadowColor = useColor;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        function initNodes() {
+            nodes.length = 0;
+            for (let i = 0; i < NODE_COUNT; i++) {
+                nodes.push(new Node(i));
+            }
+        }
+
+        function init() {
+            resize();
+            initNodes();
+        }
+
+        function resize() {
+            width = canvas.width = orbWrapper.clientWidth;
+            height = canvas.height = orbWrapper.clientHeight;
+            // Scale radius to 42% of the minimum dimension to guarantee zero clipping
+            sphereRadius = Math.min(width, height) * 0.42;
+            // Cap radius at 145px for a perfect premium aesthetic in medium windows
+            if (sphereRadius > 145) sphereRadius = 145;
+            if (sphereRadius < 100) sphereRadius = 100;
+        }
+        window.addEventListener('resize', resize);
+
+        function triggerRipple() {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = '50%';
+            ripple.style.top = '50%';
+            ripple.style.transform = 'translate(-50%, -50%)';
+            orbWrapper.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 1500);
+
+            nodes.forEach(n => {
+                if (Math.random() > 0.6) n.synapticFiring = 0.9;
+            });
+        }
+
+        function createFloatingParticle() {
+            const particle = document.createElement('div');
+            particle.className = 'data-particle';
+            const rect = orbWrapper.getBoundingClientRect();
+            particle.style.left = (rect.width / 2 + (Math.random() - 0.5) * (sphereRadius * 1.8)) + 'px';
+            particle.style.top = (rect.height / 2 + (Math.random() - 0.5) * (sphereRadius * 1.8)) + 'px';
+            orbWrapper.appendChild(particle);
+
+            const duration = 1200 + Math.random() * 2000;
+            const anim = particle.animate([
+                { transform: 'translate(0,0) scale(1)', opacity: 0 },
+                { transform: `translate(${(Math.random() - 0.5) * 100}px, -80px) scale(1.4)`, opacity: 0.85, offset: 0.5 },
+                { transform: `translate(${(Math.random() - 0.5) * 200}px, -180px) scale(0)`, opacity: 0 }
+            ], { duration, easing: 'ease-out' });
+            anim.onfinish = () => particle.remove();
+        }
+
+        function hslColor(h, s, l) {
+            return `hsl(${h}, ${s}%, ${l}%)`;
+        }
+
+        function hslaColor(h, s, l, a) {
+            return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+        }
+
+        function animate() {
+            animTime = Date.now() / 1000;
+            ctx.clearRect(0, 0, width, height);
+            let centerX = width / 2;
+            let centerY = height / 2;
+
+            // Auto-pulse volume when speaking if no external volume data
+            if (currentState === "SPEAKING" && !externalVolume) {
+                currentVolume = 0.3 + 0.5 * Math.abs(Math.sin(animTime * 6 + Math.sin(animTime * 3) * 0.5))
+                    + 0.2 * Math.sin(animTime * 13 + Math.cos(animTime * 2) * 0.3);
+            }
+
+            // Movement
+            const mv = currentMovement;
+            if (mv === "orbit") {
+                sphereOffsetX = Math.sin(animTime * 0.3) * width * 0.08;
+                sphereOffsetY = Math.cos(animTime * 0.4) * height * 0.05;
+            } else if (mv === "bob") {
+                sphereOffsetX = 0;
+                sphereOffsetY = Math.sin(animTime * 0.8) * height * 0.06;
+            } else if (mv === "sway") {
+                sphereOffsetX = Math.sin(animTime * 0.5) * width * 0.1;
+                sphereOffsetY = 0;
+            } else if (mv === "drift") {
+                sphereOffsetX = Math.sin(animTime * 0.1 + Math.sin(animTime * 0.05) * 2) * width * 0.12;
+                sphereOffsetY = Math.cos(animTime * 0.07 + Math.sin(animTime * 0.03) * 3) * height * 0.08;
+            } else {
+                sphereOffsetX *= 0.92;
+                sphereOffsetY *= 0.92;
+            }
+            const cx = centerX + sphereOffsetX;
+            const cy = centerY + sphereOffsetY;
+            if (currentState === "SPEAKING") {
+                const voicePulse = 1.0 + currentVolume * 0.22;
+                canvas.style.transform = `scale(${voicePulse})`;
+            } else if (currentState === "THINKING") {
+                const thinkPulse = 1.02 + Math.sin(animTime * 15) * 0.02;
+                canvas.style.transform = `scale(${thinkPulse})`;
+            } else {
+                canvas.style.transform = `scale(1)`;
+            }
+
+            let noise = (Math.random() - 0.5) * 0.12;
+            let intensity = baseIntensity;
+
+            if (currentState === "MUTED") {
+                intensity = 0.5;
+                rotationY += 0.0006;
+                rotationX += 0.0002;
+            } else if (currentState === "THINKING") {
+                intensity = 1.6;
+                rotationY += 0.018;
+                rotationX += 0.006;
+            } else if (currentState === "SPEAKING") {
+                intensity = 1.2 + currentVolume * 0.8;
+                rotationY += 0.006 + currentVolume * 0.03;
+                rotationX += 0.002 + currentVolume * 0.01;
+            } else {
+                intensity = 1.0 + noise;
+                rotationY += 0.0022;
+                rotationX += 0.0008;
+            }
+
+            let currentRadius = sphereRadius;
+            if (currentState === "SPEAKING") {
+                currentRadius = sphereRadius * (1.0 + currentVolume * 0.32);
+            } else if (currentState === "THINKING") {
+                currentRadius = sphereRadius * (1.0 + Math.sin(animTime * 15) * 0.04);
+            }
+
+            // Central glow
+            if (currentState !== "MUTED" && currentVisualMode !== "aurora") {
+                const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, currentRadius * 0.95);
+                const centralGlowOpacity = 0.25 + (currentState === "SPEAKING" ? currentVolume * 0.35 : 0.06);
+                glowGrad.addColorStop(0, hexToRgba(themeColors.PRI, centralGlowOpacity));
+                glowGrad.addColorStop(1, 'transparent');
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, currentRadius * 0.95, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            nodes.forEach(node => node.update(rotationX, rotationY, intensity, currentRadius));
+
+            // Connections — only draw for neural and galaxy modes
+            if (currentVisualMode === "neural" || currentVisualMode === "galaxy") {
+                const connectionLimit = (currentState === "MUTED") ? 1 : ((currentState === "THINKING") ? 5 : 3);
+                let distThreshold = (currentState === "MUTED") ? 100 : ((currentState === "THINKING") ? 170 : 140);
+                if (currentState === "SPEAKING") {
+                    distThreshold = 140 + currentVolume * 70;
+                }
+                if (currentVisualMode === "galaxy") distThreshold *= 0.6;
+
+                for (let i = 0; i < nodes.length; i++) {
+                    let connections = 0;
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        if (connections > connectionLimit) break;
+                        const dx = nodes[i].x - nodes[j].x;
+                        const dy = nodes[i].y - nodes[j].y;
+                        const dz = nodes[i].z - nodes[j].z;
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        if (dist < distThreshold) {
+                            connections++;
+                            const scale = ((nodes[i].z + nodes[j].z) / 2 + currentRadius) / (currentRadius * 2);
+                            const opacity = (1 - dist / distThreshold) * 0.42 * scale * intensity;
+                            ctx.beginPath();
+                            ctx.lineWidth = 0.5 + (scale * 1.8);
+                            ctx.moveTo(cx + nodes[i].x, cy + nodes[i].y);
+                            ctx.lineTo(cx + nodes[j].x, cy + nodes[j].y);
+                            const grad = ctx.createLinearGradient(cx + nodes[i].x, cy + nodes[i].y, cx + nodes[j].x, cy + nodes[j].y);
+                            grad.addColorStop(0, nodes[i].color);
+                            grad.addColorStop(1, nodes[j].color);
+                            ctx.strokeStyle = grad;
+                            ctx.globalAlpha = opacity;
+                            ctx.stroke();
+                            const threshold = (currentState === "THINKING") ? 0.93 : 0.992;
+                            if (Math.random() > threshold) {
+                                ctx.lineWidth = 3.5;
+                                ctx.globalAlpha = opacity * 2.5;
+                                ctx.stroke();
+                                nodes[i].synapticFiring = 0.7;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Aurora curtain rendering
+            if (currentVisualMode === "aurora") {
+                ctx.globalAlpha = 0.15;
+                for (let i = 0; i < nodes.length; i++) {
+                    const n = nodes[i];
+                    const curtainX = (n.index / NODE_COUNT) * Math.PI * 4 + animTime * 0.2;
+                    const alpha = 0.1 + 0.3 * (0.5 + 0.5 * Math.sin(curtainX + animTime * 0.3));
+                    ctx.fillStyle = hexToRgba(n.color, alpha * intensity * 0.3);
+                    ctx.beginPath();
+                    ctx.arc(cx + n.x, cy + n.y, n.size * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            nodes.sort((a, b) => a.z - b.z);
+            nodes.forEach(node => node.draw(ctx, cx, cy, intensity));
+
+            // Pulse rings
+            if (currentVisualMode === "pulse") {
+                for (let r = 1; r <= 3; r++) {
+                    const ringPhase = (animTime * 0.5 + r * 1.5) % 3;
+                    const ringRadius = currentRadius * (0.3 + ringPhase * 0.25);
+                    const ringAlpha = 0.15 * (1 - ringPhase / 3);
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = hexToRgba(themeColors.PRI, ringAlpha * intensity);
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            }
+
+            // Stats — only update when visible
+            const statsEl = document.getElementById('synaptic-stats');
+            if (statsEl.classList.contains('visible')) {
+                document.getElementById('stat-sync').textContent = (currentState === "THINKING" ? (99.4 + Math.random() * 0.5) : (98.8 + Math.random() * 0.8)).toFixed(1) + '%';
+                document.getElementById('stat-load').textContent = (currentState === "THINKING" ? Math.floor(2 + Math.random() * 4) : (currentState === "MUTED" ? '0' : Math.floor(6 + Math.random() * 7))) + ' ms';
+            }
+
+            // Particles
+            if (currentState !== "MUTED") {
+                const particleChance = (currentState === "THINKING") ? 0.4 : ((currentState === "SPEAKING") ? 0.6 : 0.985);
+                if (Math.random() > particleChance) createFloatingParticle();
+            }
+
+            if (currentState === "THINKING" && Math.random() > 0.93) triggerRipple();
+
+            requestAnimationFrame(animate);
+        }
+
+        // ── Synaptic Stats auto-show timer (every 5 minutes for 3 seconds) ──
+        let _statsHideTimer = null;
+        let _statsSchedTimer = null;
+
+        window.showSynapticStats = function(durationMs) {
+            const el = document.getElementById('synaptic-stats');
+            if (!el) return;
+            if (_statsHideTimer) clearTimeout(_statsHideTimer);
+            el.classList.add('visible');
+            const dur = (typeof durationMs === 'number') ? durationMs : 3000;
+            _statsHideTimer = setTimeout(() => {
+                el.classList.remove('visible');
+            }, dur);
+        };
+
+        // Auto-show every 5 minutes
+        function _scheduleStatsShow() {
+            if (_statsSchedTimer) clearTimeout(_statsSchedTimer);
+            _statsSchedTimer = setTimeout(() => {
+                window.showSynapticStats(3000);
+                _scheduleStatsShow();
+            }, 300000); // 5 minutes
+        }
+        _scheduleStatsShow();
+
+        // Click actions
+        function onMicTriggerClick() {
+            if (pyBridge) {
+                pyBridge.toggle_mute();
+            }
+        }
+
+        function setMuteFromWeb(mute) {
+            if (isMuted !== mute) {
+                onMicTriggerClick();
+            }
+        }
+
+        // Exposed API called by Python to update UI state
+        window.updateState = function(state) {
+            currentState = state;
+            if (state !== "SPEAKING") {
+                externalVolume = false;
+                currentVolume = 0;
+            }
+            console.log("State updated to: " + state);
+
+            const micBtn = document.getElementById('mic-trigger');
+            const micIcon = document.getElementById('mic-icon');
+            const ring1 = document.getElementById('ring-1');
+            const ring2 = document.getElementById('ring-2');
+            const lblOn = document.getElementById('lbl-mic-on');
+            const lblMuted = document.getElementById('lbl-mic-muted');
+
+            if (state === "MUTED") {
+                isMuted = true;
+                micBtn.classList.add('muted');
+                micIcon.textContent = 'mic_off';
+                ring1.style.opacity = '0';
+                ring2.style.opacity = '0';
+                baseIntensity = 0.6;
+
+                // Pill UI labels styling
+                lblMuted.style.opacity = '1.0';
+                lblMuted.style.textShadow = '0 0 12px rgba(255, 51, 85, 0.8)';
+                lblOn.style.opacity = '0.35';
+                lblOn.style.textShadow = 'none';
+            } else {
+                isMuted = false;
+                micBtn.classList.remove('muted');
+                micIcon.textContent = 'mic';
+                ring1.style.opacity = '1';
+                ring2.style.opacity = '1';
+                baseIntensity = 1.0;
+                if (state === "SPEAKING") {
+                    baseIntensity = 1.2;
+                }
+
+                // Pill UI labels styling
+                lblOn.style.opacity = '1.0';
+                lblOn.style.textShadow = '0 0 12px var(--primary-glow)';
+                lblMuted.style.opacity = '0.35';
+                lblMuted.style.textShadow = 'none';
+            }
+        };
+
+        // Alias for Python Qt bridge compatibility
+        window.setState = window.updateState;
+
+        // Exposed API called by Python to update voice audio envelope
+        window.updateVolume = function(level) {
+            currentVolume = level;
+            externalVolume = true;
+            const ring1 = document.getElementById('ring-1');
+            const ring2 = document.getElementById('ring-2');
+
+            // Pulsate rings in capsule based on speaking level
+            if (currentState === "SPEAKING" && !isMuted && ring1 && ring2) {
+                const ringScale1 = 1.0 + level * 0.45;
+                const ringScale2 = 1.0 + level * 0.25;
+                ring1.style.transform = `scale(${ringScale1})`;
+                ring2.style.transform = `scale(${ringScale2})`;
+            } else {
+                if (ring1) ring1.style.transform = `none`;
+                if (ring2) ring2.style.transform = `none`;
+            }
+        };
+
+
+        // Exposed API to change visual mode
+        window.setVisualMode = function(mode) {
+            const valid = ["neural", "galaxy", "pulse", "aurora"];
+            if (valid.includes(mode)) {
+                currentVisualMode = mode;
+                console.log("Visual mode changed to: " + mode);
+            }
+        };
+
+        // Exposed API to change movement pattern
+        window.setMovement = function(movement) {
+            const valid = ["still", "orbit", "bob", "sway", "drift"];
+            if (valid.includes(movement)) {
+                currentMovement = movement;
+                console.log("Movement changed to: " + movement);
+            }
+        };
+
+        // Exposed API to toggle rainbow mode
+        window.setRainbow = function(active) {
+            if (active && !rainbowActive) {
+                if (!savedThemeColors) savedThemeColors = { ...themeColors };
+                rainbowActive = true;
+                const hue = (rainbowHue || 0) % 360;
+                themeColors.PRI = hslColor(hue, 90, 60);
+                themeColors.TEXT = hslColor(hue, 70, 80);
+                themeColors.PRI_DIM = hslColor(hue, 60, 35);
+                applyThemeToDom({ glowAlpha: 0.3 });
+                nodes.forEach(node => {
+                    node.color = hslColor((hue + node.index * 4) % 360, 90, 60);
+                });
+                return;
+            }
+            if (!active && rainbowActive) {
+                rainbowActive = false;
+                if (savedThemeColors) {
+                    themeColors = { ...savedThemeColors };
+                    savedThemeColors = null;
+                }
+                applyThemeToDom();
+                nodes.forEach(node => node.randomizeColor());
+                return;
+            }
+            rainbowActive = active;
+        };
+
+        window.getRainbowHue = function() {
+            return rainbowHue;
+        };
+
+        window.setRainbowHue = function(hue) {
+            rainbowHue = hue % 360;
+            if (rainbowActive) {
+                themeColors.PRI = hslColor(rainbowHue, 90, 60);
+                themeColors.TEXT = hslColor(rainbowHue, 70, 80);
+                themeColors.PRI_DIM = hslColor(rainbowHue, 60, 35);
+                applyThemeToDom({ glowAlpha: 0.3 });
+                nodes.forEach(node => {
+                    node.color = hslColor((rainbowHue + node.index * 4) % 360, 90, 60);
+                });
+            }
+        };
+
+        // Exposed API to adapt themes dynamically in real time
+        window.setThemeColors = function(colors) {
+            const next = {
+                PRI: colors.PRI || '#00d4ff',
+                PRI_DIM: colors.PRI_DIM || '#005f77',
+                TEXT: colors.TEXT || '#7aeeff',
+                BG: colors.BG || '#050c14'
+            };
+            if (rainbowActive) {
+                savedThemeColors = { ...next };
+                // Also update themeColors to use the current rainbow hue
+                themeColors.PRI = next.PRI;
+                themeColors.PRI_DIM = next.PRI_DIM;
+                themeColors.TEXT = next.TEXT;
+                themeColors.BG = next.BG;
+                applyThemeToDom({ glowAlpha: 0.3 });
+                return;
+            }
+            themeColors = next;
+            applyThemeToDom();
+            nodes.forEach(node => node.randomizeColor());
+        };
+
+        function hexToRgba(color, alpha) {
+            if (color.startsWith('rgba')) {
+                return color.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, `rgba($1,$2,$3,${alpha})`);
+            }
+            if (color.startsWith('hsl')) {
+                const m = color.match(/hsl\(([^)]+)\)/);
+                if (m) return color.replace('hsl(', 'hsla(').replace(')', `,${alpha})`);
+                return color;
+            }
+            let c;
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(color)){
+                c = color.substring(1).split('');
+                if(c.length == 3){
+                    c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+                }
+                c = '0x' + c.join('');
+                return `rgba(${[(c>>16)&255, (c>>8)&255, c&255].join(',')},${alpha})`;
+            }
+            return color;
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

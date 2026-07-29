@@ -1,0 +1,47 @@
+{
+ "memory": {
+  "notes": {},
+  "habits": {},
+  "preferences": {
+   "excel_macros_interest": {
+    "value": "User is interested in learning about Excel macros"
+   }
+  },
+  "context": {},
+  "learnings": {
+   "fake_tool_timeout_4d9643d4": {
+    "value": "TOOL=fake_tool | FAILURE=timeout | COUNT=6 | WHEN=2026-07-27T03:18:12 | REMEDY=apply proposals from evolve.analyze. Circuit breaker may be OPEN until cooldown."
+   }
+  },
+  "corrections": {
+   "fix_fake_tool_timeout": {
+    "value": "For fake_tool: Retry with exponential backoff (1s, 2s, 4s). Cap max wait at 15s. Return partial result after timeout."
+   }
+  }
+ },
+ "meta": {
+  "_hits": {
+   "d6c9f09fc73d": 4,
+   "1c00ae353f7a": 2,
+   "62c76b2787f6": 2
+  },
+  "_last_access": {
+   "d6c9f09fc73d": 1785139673.9758136,
+   "1c00ae353f7a": 1785140292.8220422,
+   "62c76b2787f6": 1785140292.8221157
+  },
+  "_created": {
+   "d6c9f09fc73d": 1785139595.9540615,
+   "1c00ae353f7a": 1785140038.5344975,
+   "62c76b2787f6": 1785140038.535445
+  },
+  "_ttl": {
+   "d6c9f09fc73d": 2592000,
+   "1c00ae353f7a": 15552000,
+   "62c76b2787f6": 23328000
+  },
+  "_version": 2,
+  "_created_at": "2026-07-27T03:06:35.953948"
+ },
+ "saved_at": "2026-07-27T03:18:18.583780"
+}

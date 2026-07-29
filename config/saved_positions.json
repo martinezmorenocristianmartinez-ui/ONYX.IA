@@ -1,0 +1,42 @@
+{
+  "saltar_anuncio": {
+    "x": 1200,
+    "y": 790
+  },
+  "click_anuncio": {
+    "x": 1206,
+    "y": 783
+  },
+  "click_video": {
+    "x": 768,
+    "y": 211
+  },
+  "comentarios_tiktok": {
+    "x": 1247,
+    "y": 682
+  },
+  "cerrar_comentarios_tiktok": {
+    "x": 1885,
+    "y": 183
+  },
+  "tiktok_volume": {
+    "x": 425,
+    "y": 291
+  },
+  "quitar_silencio_tiktok": {
+    "x": 769,
+    "y": 209
+  },
+  "silencio_tiktok": {
+    "x": 778,
+    "y": 210
+  },
+  "like_video": {
+    "x": 1252,
+    "y": 588
+  },
+  "toggle_volume_tiktok": {
+    "x": 768,
+    "y": 203
+  }
+}

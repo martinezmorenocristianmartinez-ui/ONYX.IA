@@ -1,0 +1,73 @@
+# ONYX AI - Dependencias (versiones fijadas al entorno verificado)
+# Generado a partir del .venv en funcionamiento. Fijar versiones evita que
+# una actualizacion de torch/transformers/playwright rompa el entorno.
+
+# --- Audio / Voz ---
+sounddevice==0.5.5
+vosk==0.3.45
+gTTS==2.5.4
+edge-tts==7.2.8
+
+# --- LLM / Google APIs ---
+google-genai==2.8.0
+google-auth-oauthlib==1.4.0
+google-api-python-client==2.197.0
+
+# --- Web / Scraping / Navegacion ---
+requests==2.34.2
+beautifulsoup4==4.15.0
+duckduckgo-search==8.1.1
+playwright==1.60.0
+youtube-transcript-api==1.2.4
+
+# --- Control de escritorio / SO (Windows) ---
+pyautogui==0.9.54
+pyperclip==1.11.0
+pygetwindow==0.0.9
+pywinauto==0.6.9
+psutil==7.2.2
+comtypes==1.4.16
+pycaw==20251023
+win10toast==0.9
+send2trash==2.1.0
+screen-brightness-control==0.27.2
+openrgb-python==0.3.6
+
+# --- Imagen / Vision / OCR ---
+pillow==12.2.0
+opencv-python==4.13.0.92
+mss==10.2.0
+numpy==2.4.6
+pytesseract==0.3.13
+easyocr==1.7.2
+rapidocr-onnxruntime==1.2.3
+ultralytics==8.4.67
+
+# --- Machine Learning ---
+torch==2.12.0
+torchvision==0.27.0
+transformers==5.12.0
+sentence-transformers==5.5.1
+
+# --- Documentos ---
+python-pptx==1.0.2
+python-docx==1.2.0
+PyPDF2==3.0.1
+
+# --- UI (PyQt6) ---
+pyqt6==6.11.0
+pyqt6-webengine==6.11.0
+qtawesome==1.4.2
+
+# --- Servidor / Eventos ---
+flask==3.1.3
+flask-socketio==5.6.1
+eventlet==0.41.0
+
+# --- Integraciones ---
+spotipy==2.26.0
+
+# --- Utilidades ---
+cryptography==49.0.0
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.27.3

@@ -1,0 +1,46 @@
+# Environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*$py.class
+# Config and Sensitive Files
+config/api_keys.json
+config/rules.json
+custom_tools.json
+
+# Logs
+*.log
+onyx.log
+
+# Scratch scripts
+patch_main.py
+analysis.py
+analysis2.py
+analysis3.py
+analysis4.py
+analysis_io.py
+profile_imports.py
+profile_runner.py
+profile_target.py
+inspect_bento_widgets.py
+import_time.txt
+import_time2.txt
+input.txt
+
+# Manual backups (usar Git en su lugar)
+backups/
+
+# Playwright persistent profile
+whatsapp_profile/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
