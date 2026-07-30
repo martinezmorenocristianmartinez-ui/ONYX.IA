@@ -535,7 +535,7 @@ if sys.platform == "win32":
     except Exception as _e:
         print(f"[ONYX] Could not patch subprocess: {_e}")
 
-LIVE_MODEL          = "gemini-2.5-flash-native-audio-preview-12-2025"
+LIVE_MODEL          = "gemini-2.5-flash-native-audio-latest"
 CHANNELS            = 1
 SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000
@@ -745,11 +745,14 @@ class OnyxLive:
                 raise ValueError("USERNAME/USERPROFILE not set")
 
             def _run_icacls(path, timeout=60):
-                if os.path.exists(path):
-                    subprocess.run(
-                        ["icacls", path, "/grant", f"{username}:(OI)(CI)F", "/T", "/C", "/Q"],
-                        capture_output=True, timeout=timeout
-                    )
+                try:
+                    if os.path.exists(path):
+                        subprocess.run(
+                            ["icacls", path, "/grant", f"{username}:(OI)(CI)F", "/T", "/C", "/Q"],
+                            capture_output=True, timeout=timeout
+                        )
+                except Exception:
+                    pass
 
             # Unlock user profile (covers Desktop, Documents, Downloads, OneDrive, etc.)
             threading.Thread(target=_run_icacls, args=(user_profile, 180), daemon=True).start()
@@ -793,9 +796,9 @@ class OnyxLive:
         except Exception as e:
             print(f"[ONYX] No se pudo cargar Vosk: {e}")
         self.audio_in_queue = None
-        # Iniciar scheduler y motor de reglas en background al arrancar ONYX
-        start_runner(player=ui, speak=self.speak)
-        start_rules_runner(player=ui, speak=None)
+        # Iniciar scheduler en background al arrancar ONYX
+        if start_runner is not None:
+            start_runner(player=ui, speak=self.speak)
         self.out_queue      = None
         self._loop          = None
         self._is_speaking   = False
@@ -809,6 +812,10 @@ class OnyxLive:
         self._reconnect_event: asyncio.Event | None = None
         self._first_connect = True  # flag for auto morning brief + guardian start
         self._rule_semaphore = threading.Semaphore(100)  # max 100 concurrent rule threads
+        from onyx.brain import Brain
+        from core.tool_declarations import TOOL_DECLARATIONS
+        from core.tool_registry import LOCAL_TOOL_NAMES
+        self.brain = Brain(tool_declarations=TOOL_DECLARATIONS, local_tool_names=LOCAL_TOOL_NAMES)
 
     def _inject_text(self, text: str):
         """Thread-safe injection of a text message into the current live session."""
@@ -860,68 +867,36 @@ class OnyxLive:
         if self._fire_phrase_triggers(text):
             return
 
-        # Sin sesión en la nube (caída / cuota agotada): usar el cerebro LOCAL (Ollama).
-        if not self._loop or not self.session:
-            self._handle_local_text(text)
-            return
+        # Delegate to Brain — decide cloud vs local
+        if self.brain.has_cloud():
+            self.brain.send_to_cloud(text)
+        else:
+            self._run_local(text)
 
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
-        )
-
-    def _handle_local_text(self, text: str):
-        """Responde usando el cerebro local (Ollama) cuando la nube no está disponible.
-
-        El cerebro local puede LLAMAR HERRAMIENTAS offline (buscar archivos, abrir
-        apps, leer documentos, etc.). Se ejecuta en un hilo aparte para no bloquear
-        el hilo de la UI.
-        """
+    def _run_local(self, text: str):
+        """Ejecuta procesamiento local (Ollama) en un hilo y actualiza la UI con el resultado."""
         self.ui.write_log(f"Tú: {text}")
         self.ui.set_state("THINKING")
 
         def _worker():
             try:
-                from core.llm_router import local_available, pick_local_model
-                from core.local_intents import detect_intent
-
-                # 1) Comando explícito determinístico (no depende del LLM local).
-                intent = detect_intent(text)
-                if intent is not None:
-                    msg = self._dispatch_tool_sync(intent["tool"], intent["args"])
-                elif not local_available():
-                    msg = ("El servicio en la nube no está disponible y no detecto Ollama "
-                           "corriendo localmente. Iniciá Ollama (ollama serve) y descargá un "
-                           "modelo con 'ollama pull qwen2.5:3b' para que pueda responderte sin internet, "
-                           "Señor Cristian.")
-                else:
-                    # 2) Conversación / herramientas vía cerebro local (Ollama).
-                    from actions.local_brain import get_brain
-                    model = pick_local_model() or "qwen2.5:3b"
-                    brain = get_brain(model)
-                    brain.set_model(model)
-                    local_decls = [t for t in TOOL_DECLARATIONS if t.get("name") in LOCAL_TOOL_NAMES]
-                    brain.set_tools(local_decls)
-                    msg = brain.chat(text, tool_dispatch_fn=self._dispatch_tool_sync)
-                    if not msg:
-                        msg = "Listo, Señor Cristian."
+                result = self.brain.process_local(text, tool_dispatch_fn=self._dispatch_tool_sync)
             except Exception as e:
-                msg = f"Error en el cerebro local: {e}"
+                from onyx.brain.interfaces import BrainResult
+                result = BrainResult(text=f"Error en el cerebro local: {e}", speak=True, state="LISTENING")
 
             try:
                 self.ui.clear_onyx_response()
             except Exception:
                 pass
-            self.ui.write_log(f"ONYX (local): {msg}")
-            try:
-                self.ui.speak(msg)
-            except Exception:
-                pass
-            if not self.ui.muted:
-                self.ui.set_state("LISTENING")
+            self.ui.write_log(f"ONYX (local): {result.text}")
+            if result.speak:
+                try:
+                    self.ui.speak(result.text)
+                except Exception:
+                    pass
+            if result.state and not self.ui.muted:
+                self.ui.set_state(result.state)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -2457,7 +2432,7 @@ class OnyxLive:
         while True:
             try:
                 print("[ONYX] 🔌 Conectando...")
-                self.ui.set_state("LISTENING")
+                self.ui.set_state("THINKING")
                 config = self._build_config()
 
                 async with (
@@ -2466,13 +2441,13 @@ class OnyxLive:
                 ):
                     self.session          = session
                     self._loop            = asyncio.get_event_loop()
+                    self.brain.set_cloud_session(session, self._loop)
                     self.audio_in_queue   = asyncio.Queue()
                     self.out_queue        = asyncio.Queue(maxsize=5)  # buffer moderado — evita drops durante ráfagas de mic
                     self._turn_done_event = asyncio.Event()
                     self._reconnect_event = asyncio.Event()
 
                     print("[ONYX] ✅ Conectado.")
-                    self.ui.set_state("LISTENING")
                     self.ui.write_log("SYS: ONYX en línea.")
                     reconnect_delay   = 1.0   # reset backoff on successful connection
                     consecutive_fails = 0
@@ -2510,6 +2485,8 @@ class OnyxLive:
                     tg.create_task(self._receive_audio())
                     tg.create_task(self._play_audio())
                     tg.create_task(self._watch_reconnect())
+
+                    self.ui.set_state("LISTENING")
 
             except Exception as e:
                 exceptions = e.exceptions if isinstance(e, ExceptionGroup) else [e]
